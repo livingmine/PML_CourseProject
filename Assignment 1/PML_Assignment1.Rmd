@@ -1,0 +1,107 @@
+---
+title: "Random Forest Application on Classification Problem"
+output: html_document
+---
+
+# Introduction
+With the advance of high technology devices such as Jawbone Up, Nike FuelBand, and Fitbit, people are now available to measure their activity not only quantitatively (how much they do) but also qualitatively (how well they do it). This article explore the data that were collected using such devices and tries to predict the quality of corresponding activities. The data contains set of variables collected from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. Each of them will try to do the barbell lifts in 5 different ways, one correct way that was specified from the instructions and four incorrect ways. The goal of this article is to predict the quality of the barbell lifts from  each observations using set of variables that were recorded by the device.
+
+This is simply a classification problem and Random Forest will be used in this article to perform the classification task. 
+
+# Synopsis
+Random Forest did well for this task and successfully predict the outcome with high accuracy. Its unbiased estimate of the out of sampe error can be found internally as Random Forest learn thus did not need to manually estimate with cross-validation. The estimate of the out of sample error is very low (only 0.27%) which reflects the out of sample error on testing data which is 0%, in other words 100% accuracy.
+
+
+# The Data
+The data used in this article was obtained from course's website which originally fetched from http://groupware.les.inf.puc-rio.br/har
+There are training data and testing data and each of them a is a csv file. To read the csv file, simply run the following codes. NOTE: It took a while to run the following codes due to the large size of data.
+
+```{r, cache = TRUE}
+system.time({
+setInternet2(TRUE)
+fileUrl <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+download.file(fileUrl, destfile="training.csv")
+trainingData <- read.csv("training.csv", header=TRUE, as.is=TRUE)
+fileUrl <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+download.file(fileUrl, destfile="testing.csv")
+testingData <- read.csv("testing.csv", header=TRUE, as.is=TRUE)
+})
+```
+
+After the data is ready, the data should be processed so that answering the proposed questions will be easier. 
+```{r}
+length(names(trainingData))
+nrow(trainingData)
+```
+
+There are 160 variables and 19622 observations on the training data.
+
+# Data Processing
+Before the data fed into the learning system, it should be processed so that the learning process will be easier and more efficient. For example, missing values should be considered to be removed or imputed. It can be seen that the data has a lot of missing values in form of "" (blank value) and NA's. On this article, those missing values will be removed not imputed. The blank values are converted into NA and then all NA's are removed. The following codes do the cleaning:
+
+```{r}
+trainingData[trainingData == ""] <- NA
+listOfNA <- lapply(X = trainingData, FUN = function(x) sum(is.na(x)))
+matrix(listOfNA, 20, 8)
+```
+
+It can be seen that most of the variables have a lot of missing values i.e., 19216 missing values.
+It would be difficult to perform analysis with most of the data missing (97.93089%), so those variables with 
+high percentage of missing values will be removed. The number of threshold to choose which variables to be included are chosen arbitrarily at 5000. Next, the training data was subsetted so that only variables with no missing values were included. 
+
+```{r}
+listOfVarUsed <- listOfNA[listOfNA < 5000]
+trainUsed <- subset(x = trainingData, select = names(listOfVarUsed))
+```
+
+To perform classification problem, the class of the outcome should be on factor.
+```{r}
+trainUsed$classe <- as.factor(trainUsed$classe)
+```
+
+#Algorithm
+Random Forest Intro
+The basic building of random forest is the classification tree. As the name suggests, forest are a set of trees. When the new input needs to be classified, it is passed to the each of the trees and those trees vote on the answer. The output will be the answer that was voted by most of the trees. There are a lot of things to explain about the random forest, for detailed explanation please visit http://www.stat.berkeley.edu/~breiman/RandomForests/cc_home.htm
+
+In this article, Random Forest were used to tackle the classification problem. 
+Why Random Forest, taken from http://www.stat.berkeley.edu/~breiman/RandomForests/cc_home.htm:
+
+1. It runs efficiently on large data bases. 
+2. It can handle thousands of input variables without variable deletion.
+3. It gives estimates of what variables are important in the classification.
+4. It generates an internal unbiased estimate of the generalization error as the forest building progresses.
+5. It does not overfit.
+
+Random Forest able to select automatically which variables are going to be used as predictor so there is no need to do feature extraction process. However, as the first seven variables are somewhat irrelevant, only the 8th until 60th variables were used as predictor.
+
+To run the Random Forest, simply run the following codes:
+```{r}
+library(randomForest)
+trainUsed1 <- trainUsed[,8:60]
+system.time(rf <- randomForest(classe ~ ., data = trainUsed1, importance = TRUE, proximity = TRUE))
+```
+
+
+The good thing about Random Forest is that one do not need to do cross-validation to get an unbiased estimate of the out of sample error because it is estimated internally during the run of Random Forest. On Random Forest, the estimate is called the out-of-bag (oob) error estimate. The oob error estimate can simply be seen using the code as follows:
+
+```{r}
+print(rf)
+```
+
+It can be seen from the result above that the OOB estimate of error rate is only 0.27% which shows that the algorithm did very well to classify between classes of outcomes. Next, with the Random Forest that has been built, new data can be fed to Random Forest to be classified. The new data is the testing data which consist of 20 observations. Those predicted outcomes were assigned to variable "answers" and can be submitted to automatic grading page on Practical Machine Learning course page on Coursera. As the estimate suggests, the algorithm did pretty well to classify those new 20 observations with 100% accuracy (20/20).
+
+```{r}
+answers <- as.character(predict(object = rf, newdata = testingData))
+answers
+```
+
+All of the code were run on a laptop with:
+
+1. Intel(R) Core(TM) i7-3630QM CPU @ 2.40GHz
+2. 8.00 GB RAM
+3. Windows 8 Pro 64-bit Operating System
+
+References:
+
+1. Velloso, E.; Bulling, A.; Gellersen, H.; Ugulino, W.; Fuks, H. Qualitative Activity Recognition of Weight Lifting Exercises. Proceedings of 4th International Conference in Cooperation with SIGCHI (Augmented Human '13) . Stuttgart, Germany: ACM SIGCHI, 2013.
+2. http://www.stat.berkeley.edu/~breiman/RandomForests/cc_home.htm (Date accessed: June 2014)
